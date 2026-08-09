@@ -76,6 +76,61 @@ EngineVersionDialog::EngineVersionDialog(wxWindow* parent) : wxDialog(parent, wx
    // CenterOnParent();
 }
 
+//-----------------------BUID DIALOG ------------------
+BuildDialog::BuildDialog(wxWindow* parent) : wxDialog(parent, wxID_ANY, "Plugins Build Queue", wxDefaultPosition, wxSize(900, 500))
+{
+    wxBoxSizer* MainSizer = new wxBoxSizer(wxVERTICAL);
+
+    BuildList = new wxDataViewListCtrl(this, wxID_ANY);
+
+    auto* PluginColumn = BuildList->AppendTextColumn("Plugin");
+    auto* StatusColumn = BuildList->AppendTextColumn("Status");
+
+    PluginColumn->SetWidth(700);
+    StatusColumn->SetWidth(100);
+
+    MainSizer->Add( BuildList, 1,wxEXPAND | wxALL,5);
+
+    Progress = new wxGauge(this, wxID_ANY, 0);
+
+    MainSizer->Add(Progress, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,5 );
+
+    SetSizer(MainSizer);
+
+}
+
+int BuildDialog::AddEntry(const wxString& PluginName)
+{
+    wxVector<wxVariant> Data;
+
+    Data.push_back(wxVariant(PluginName));
+    Data.push_back(wxVariant("Waiting"));
+
+    BuildList->AppendItem(Data);
+
+    Progress->SetRange(BuildList->GetItemCount());
+
+    return BuildList->GetItemCount() - 1;
+}
+
+void BuildDialog::SetStatus(int Row, const wxString& Status)
+{
+    BuildList->SetValue(Status, Row, 1);
+}
+
+void BuildDialog::AdvanceProgress()
+{
+    ++FinishedCount;
+    Progress->SetValue(FinishedCount);
+}
+
+void BuildDialog::InitForBuild()
+{
+    for (wxString& itr : RequiredVersions)
+    {
+        AddEntry(itr);
+    }
+}
 
 // ---------------------- MAIN ----------------------
 
@@ -440,7 +495,25 @@ void cMain::RefreshEntries()
                 }*/
 
                 wxString enginePath = EngineVersions[CurrentBuildIndex];
-                RunBuild(e.Path, e.Name, e.version, enginePath);
+                wxString EngineVersion = enginePath.AfterLast('\\');
+                wxString VersionNumber = EngineVersion.AfterFirst('_');
+
+                wxString Version = wxString::Format("%s_%s_%s", e.Name, e.version, EngineVersion);
+               // RunBuild(e.Path, e.Name, e.version, enginePath); //commented for testing.
+
+                BuildDialog* Dialog = new BuildDialog(this);
+
+                Dialog->RequiredVersions.push_back(Version);
+                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.3");
+                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.4");
+                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.5");
+                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.6");
+                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.7");
+
+                Dialog->InitForBuild();
+
+                Dialog->Show();
+
 				e.LastTimeBuilt = wxDateTime::Now();
                 SaveEntries();
                /* wxSingleChoiceDialog dlg(this,

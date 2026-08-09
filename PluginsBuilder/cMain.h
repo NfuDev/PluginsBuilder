@@ -21,6 +21,10 @@
 #include <wx/listctrl.h> 
 #include <wx/filepicker.h>
 
+#include <wx/dialog.h>
+#include <wx/dataview.h>
+#include <wx/gauge.h>
+
 struct Entry
 {
     wxString Name;
@@ -105,6 +109,34 @@ class EngineVersionDialog : public wxDialog
 {
 public:
     EngineVersionDialog(wxWindow* parent);
+};
+
+struct BuildQueue
+{
+    Entry* Plugin;
+    std::vector<wxString> RequiredVersions;
+};
+
+class BuildDialog : public wxDialog
+{
+public:
+    BuildDialog(wxWindow* parent);
+
+    int AddEntry(const wxString& PluginName);
+    void SetStatus(int Row, const wxString& Status);
+    void AdvanceProgress();
+
+    Entry* Plugin;
+    std::vector<wxString> RequiredVersions;
+
+    void InitForBuild();
+
+private:
+    wxDataViewListCtrl* BuildList = nullptr;
+    wxGauge* Progress = nullptr;
+
+    int FinishedCount = 0;
+
 };
 
 class cMain : public wxFrame
