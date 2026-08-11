@@ -111,31 +111,38 @@ public:
     EngineVersionDialog(wxWindow* parent);
 };
 
-struct BuildQueue
-{
-    Entry* Plugin;
-    std::vector<wxString> RequiredVersions;
-};
+//struct BuildQueue
+//{
+//    Entry* Plugin;
+//    std::vector<wxString> RequiredVersions;
+//};
 
 class BuildDialog : public wxDialog
 {
 public:
-    BuildDialog(wxWindow* parent);
+    BuildDialog(class cMain* parent, Entry& _Plugin);
 
     int AddEntry(const wxString& PluginName);
     void SetStatus(int Row, const wxString& Status);
     void AdvanceProgress();
 
-    Entry* Plugin;
+    Entry& Plugin;
+    cMain* MainWindow;
     std::vector<wxString> RequiredVersions;
-
     void InitForBuild();
+
+    void StartBuilding();
+    void BuildNext();
+    void Cancel();
+    wxString GetBuildDuration();
 
 private:
     wxDataViewListCtrl* BuildList = nullptr;
     wxGauge* Progress = nullptr;
 
     int FinishedCount = 0;
+    bool bIsCanceled = false;
+    wxDateTime BuildStartTime;
 
 };
 
@@ -195,12 +202,13 @@ public:
     int CurrentBuildIndex = -1;
     std::vector<Entry> Entries;
     std::vector<wxString> EngineVersions;
+    std::vector<int> SelectedEngineVersions;
     wxString XmlPath;
     wxString ResultsPath;
 
 
     wxProcess* m_process = nullptr;
-
+    BuildDialog* m_BuildDialoge = nullptr;
 
     // TODO panel controls
     wxPanel* TodoPanel = nullptr;
@@ -217,6 +225,7 @@ public:
     void RefreshEntries();
     void RefreshEngineTargets();
 
+    void PrepareSelectedVersions();
 
     bool CheckPathValidity(const wxString& path);
 

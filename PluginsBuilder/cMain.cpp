@@ -77,8 +77,9 @@ EngineVersionDialog::EngineVersionDialog(wxWindow* parent) : wxDialog(parent, wx
 }
 
 //-----------------------BUID DIALOG ------------------
-BuildDialog::BuildDialog(wxWindow* parent) : wxDialog(parent, wxID_ANY, "Plugins Build Queue", wxDefaultPosition, wxSize(900, 500))
+BuildDialog::BuildDialog(cMain* parent, Entry& _Plugin) : wxDialog(parent, wxID_ANY, "Plugins Build Queue", wxDefaultPosition, wxSize(900, 500)), Plugin(_Plugin)
 {
+    MainWindow = parent;
     wxBoxSizer* MainSizer = new wxBoxSizer(wxVERTICAL);
 
     BuildList = new wxDataViewListCtrl(this, wxID_ANY);
@@ -128,8 +129,69 @@ void BuildDialog::InitForBuild()
 {
     for (wxString& itr : RequiredVersions)
     {
-        AddEntry(itr);
+        wxString EngineVersion = itr.AfterLast('\\');
+        wxString VersionNumber = EngineVersion.AfterFirst('_');
+        wxString Version = wxString::Format("%s_%s_%s", Plugin.Name, Plugin.version, EngineVersion);
+
+        AddEntry(Version);
     }
+
+}
+
+void BuildDialog::StartBuilding()
+{
+    BuildStartTime = wxDateTime::Now();
+    SetStatus(FinishedCount, "Running...");
+    MainWindow->RunBuild(Plugin.Path, Plugin.Name, Plugin.version, RequiredVersions[FinishedCount]);
+}
+
+void BuildDialog::BuildNext()
+{
+    if(bIsCanceled)
+    {
+        return;
+    }
+
+    wxString Duration = GetBuildDuration();
+    SetStatus(FinishedCount, wxString::Format("Finished in (%s)", Duration));
+    AdvanceProgress();
+
+    if(FinishedCount < RequiredVersions.capacity())
+    {
+        BuildStartTime = wxDateTime::Now();
+        SetStatus(FinishedCount, "Running...");
+        MainWindow->RunBuild(Plugin.Path, Plugin.Name, Plugin.version, RequiredVersions[FinishedCount]);
+    }
+    else
+    {
+        wxMessageBox(wxString::Format("Finished Building!."));
+    }
+}
+
+void BuildDialog::Cancel()
+{
+    for(int i = FinishedCount; i < RequiredVersions.capacity(); i++)
+    {
+        SetStatus(i, "Canceled");
+    }
+
+    bIsCanceled = true;
+}
+
+wxString BuildDialog::GetBuildDuration()
+{
+    wxTimeSpan diff = wxDateTime::Now() - BuildStartTime;
+
+    if (diff.GetMinutes() < 1)
+        return wxString::Format("%lld sec", diff.GetSeconds().GetValue());
+
+    if (diff.GetHours() < 1)
+        return wxString::Format("%ld min", diff.GetMinutes());
+
+    if (diff.GetHours() < 24)
+        return wxString::Format("%ld hr", diff.GetHours());
+
+    return wxString::Format("%ld days", diff.GetDays());
 }
 
 // ---------------------- MAIN ----------------------
@@ -494,25 +556,24 @@ void cMain::RefreshEntries()
                     engineChoices.Add(version);
                 }*/
 
-                wxString enginePath = EngineVersions[CurrentBuildIndex];
-                wxString EngineVersion = enginePath.AfterLast('\\');
-                wxString VersionNumber = EngineVersion.AfterFirst('_');
+                PrepareSelectedVersions();
+                m_BuildDialoge = new BuildDialog(this, e);
 
-                wxString Version = wxString::Format("%s_%s_%s", e.Name, e.version, EngineVersion);
-               // RunBuild(e.Path, e.Name, e.version, enginePath); //commented for testing.
+                for(int index : SelectedEngineVersions)
+                {
+                   // wxString enginePath = EngineVersions[index];
+                    //wxString EngineVersion = enginePath.AfterLast('\\');
+                    //wxString VersionNumber = EngineVersion.AfterFirst('_');
 
-                BuildDialog* Dialog = new BuildDialog(this);
+                    //wxString Version = wxString::Format("%s_%s_%s", e.Name, e.version, enginePath);
+                   // RunBuild(e.Path, e.Name, e.version, enginePath); //commented for testing.
+                    m_BuildDialoge->RequiredVersions.push_back(EngineVersions[index]);
+                }
 
-                Dialog->RequiredVersions.push_back(Version);
-                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.3");
-                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.4");
-                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.5");
-                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.6");
-                Dialog->RequiredVersions.push_back("ArrowsCombatSystem_V7_UE5.7");
+                m_BuildDialoge->InitForBuild();
 
-                Dialog->InitForBuild();
-
-                Dialog->Show();
+                m_BuildDialoge->Show();
+                m_BuildDialoge->StartBuilding();
 
 				e.LastTimeBuilt = wxDateTime::Now();
                 SaveEntries();
@@ -604,7 +665,7 @@ void cMain::RefreshEngineTargets()
                         wxCheckBox* cb = dynamic_cast<wxCheckBox*>(item->GetWindow());
                         if (cb && cb != newCheckBox)
                         {
-                            cb->SetValue(false);
+                            //cb->SetValue(false);
                         }
                         else if (cb == newCheckBox)
                         {
@@ -617,6 +678,21 @@ void cMain::RefreshEngineTargets()
             });
 
         EngineTargets->Add(newCheckBox, 0, wxEXPAND | wxALL, 5);
+    }
+}
+
+void cMain::PrepareSelectedVersions()
+{
+    int index = 0;
+    SelectedEngineVersions.clear();
+    for (wxSizerItem* item : EngineTargets->GetChildren())
+    {
+        wxCheckBox* cb = dynamic_cast<wxCheckBox*>(item->GetWindow());
+        if (cb && cb->IsChecked())
+        {
+            SelectedEngineVersions.push_back(index);
+        }
+        index++;
     }
 }
 
@@ -767,7 +843,7 @@ void cMain::RunBuild(const wxString& pluginPath, const wxString& versionName, co
 
     wxString command = wxString::Format(
         "\"%s\\Engine\\Build\\BatchFiles\\RunUAT.bat\" "
-        "BuildPlugin -Plugin=\"%s\" -Package=\"%s\\Arrows Products\\%s_%s_%s\" -Rocket -VS2019 %s",
+        "BuildPlugin -Plugin=\"%s\" -Package=\"%s\\Arrows Products\\%s_%s\\%s\" -Rocket -VS2019 %s",
         enginePath, pluginPath, ResultsPath, versionName, version, EngineVersion, BuildCommands->GetValue());
 
     ConsoleOutput->Clear();
@@ -857,6 +933,8 @@ void cMain::OnProcessTerminated(wxProcessEvent& event)
 
     Unbind(wxEVT_IDLE, &cMain::OnIdle, this);
     Unbind(wxEVT_END_PROCESS, &cMain::OnProcessTerminated, this);
+
+    m_BuildDialoge->BuildNext();
 }
 
 void cMain::OnCancelBuild(wxCommandEvent&)
@@ -871,6 +949,7 @@ void cMain::OnCancelBuild(wxCommandEvent&)
             wxExecute(killCmd, wxEXEC_ASYNC);
 
             ConsoleOutput->AppendText("\nBuild cancelled by user.\n");
+            m_BuildDialoge->Cancel();
         }
     }
 }
