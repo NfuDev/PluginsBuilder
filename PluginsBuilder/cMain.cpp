@@ -6,7 +6,7 @@
 #include "resource.h"
 #include <wx/datetime.h>
 #include "CustomButton.h"
-
+#include "wxZipper.h"
 
 #define ADD_LINE_SPLIT(sizer,parent)\
 sizer->Add(new wxStaticLine(parent, wxID_ANY),\
@@ -147,6 +147,9 @@ void BuildDialog::StartBuilding()
 
 void BuildDialog::BuildNext()
 {
+
+    MainWindow->CompressRecentlyBuilt(Plugin.Name, Plugin.version, RequiredVersions[FinishedCount]);
+
     if(bIsCanceled)
     {
         return;
@@ -862,6 +865,19 @@ void cMain::RunBuild(const wxString& pluginPath, const wxString& versionName, co
 
     Bind(wxEVT_IDLE, &cMain::OnIdle, this);
     Bind(wxEVT_END_PROCESS, &cMain::OnProcessTerminated, this);
+}
+
+void cMain::CompressRecentlyBuilt(const wxString& versionName, const wxString& version, const wxString& enginePath)
+{
+    wxString EngineVersion = enginePath.AfterLast('\\');
+    EngineVersion.Replace(".", "_");
+    wxString BuildPath = wxString::Format("%s\\Arrows Products\\%s_%s\\%s\\", ResultsPath, versionName, version, EngineVersion);
+    wxString CompressPath = wxString::Format("%s\\Arrows Products\\%s_%s\\%s.zip", ResultsPath, versionName, version, EngineVersion);
+
+    wxZipper Zipper;
+    Zipper.HostPanel = this;
+    Zipper.PreparePluginToCompress(BuildPath, CompressPath);
+    Zipper.PerformCompression();
 }
 
 void cMain::OnIdle(wxIdleEvent& event)

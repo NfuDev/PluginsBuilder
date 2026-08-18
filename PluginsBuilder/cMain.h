@@ -239,7 +239,7 @@ public:
 
 
     void RunBuild(const wxString& pluginPath, const wxString& versionName, const wxString& version, const wxString& enginePath);
-
+    void CompressRecentlyBuilt(const wxString& versionName, const wxString& version, const wxString& enginePath);
 
     void OnProcessTerminated(wxProcessEvent& event);
     void OnIdle(wxIdleEvent& event);

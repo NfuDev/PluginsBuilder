@@ -23,6 +23,7 @@
     <ClInclude Include="cMain.h" />
     <ClInclude Include="CustomButton.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="wxZipper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cApp.cpp" />
